@@ -124,4 +124,38 @@ Status read_and_validate_encode_args(char *argv[],EncodeInfo *encInfo)
         
 
 }
-Status do_ 
+Status do_ encoding(EncodeInfo *encInfo)
+{
+
+}
+Status check_capacity(EncodeInfo *encInfo)
+{
+    encInfo -> size_secret_file =get_file_size(encInfo -> fptr_secret);
+    if(get_image_size_for_bmp(encInfo -> fptr_src_image)>=(2+4+4+encInfo -> size_secret_file)*8)
+    {
+        return e_success;
+    }else{
+        return e_failure;
+    }
+}
+uint get_file_size(FILE *fptr)
+{
+    fseek(fptr,0,SEEK_END);
+    uint size=ftell(fptr);
+    rewind(fptr);
+    return size;
+}
+Status copy_bmp_header(FILE *fptr_src_image,FILE *fptr_dest_image)
+{
+    char buff[54];
+    if(fread(buff,sizeof(buff[0]),54,fptr_src_image)!=54)
+    {
+        return e_failure;
+    }
+    if(fwrite(buff,sizeof(buff[0]),54,fptr_dest_image)!=54)
+    {
+        return e_failure;
+    }
+    return e_success;
+
+}
