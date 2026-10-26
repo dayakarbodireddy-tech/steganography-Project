@@ -124,9 +124,23 @@ Status read_and_validate_encode_args(char *argv[],EncodeInfo *encInfo)
         
 
 }
-Status do_ encoding(EncodeInfo *encInfo)
+Status do_encoding(EncodeInfo *encInfo)
 {
-
+  if(check_capacity(encInfo)==e_failure)
+  {
+    printf("Secret file have more capacity compared to source image file\n");
+    return e_failure;
+  }
+  if(copy_bmp_header(encInfo -> fptr_src_image, encInfo -> fptr_stego_image)==e_failure)
+  {
+    printf("File header not copied into the destination file\n");
+    return e_failure;
+  }
+  if(encode_magic_string(MAGIC_STRING, encInfo)==e_failure)
+  {
+    printf("source image doesnot provide 8 bytes data to store magic string\n");
+    return e_failure;
+  }
 }
 Status check_capacity(EncodeInfo *encInfo)
 {
@@ -145,17 +159,47 @@ uint get_file_size(FILE *fptr)
     rewind(fptr);
     return size;
 }
-Status copy_bmp_header(FILE *fptr_src_image,FILE *fptr_dest_image)
+Status copy_bmp_header(FILE *fptr_src_image,FILE *fptr_stego_image)
 {
     char buff[54];
+    rewind(fptr_src_image);
     if(fread(buff,sizeof(buff[0]),54,fptr_src_image)!=54)
     {
         return e_failure;
     }
-    if(fwrite(buff,sizeof(buff[0]),54,fptr_dest_image)!=54)
+    if(fwrite(buff,sizeof(buff[0]),54,fptr_stego_image)!=54)
     {
         return e_failure;
     }
     return e_success;
-
 }
+Status encode_magic_string(const char *magic_string,EncodeInfo *encInfo)
+{
+    char image_buffer[8];
+    for(int i=0;i<2;i++)
+    {
+        if(fread(image_buffer,sizeof(image_buffer[0]),8,encInfo -> fptr_src_image)!=8)
+        {
+            return e_failure;
+        }
+        encode_byte_to_lsb(magic_string[i],image_buffer);
+        if(fwrite(image_buffer,sizeof(image_buffer[0]),8,encInfo -> fptr_stego_image)!=8)
+        {
+            return e_failure;
+        }
+
+        
+    }
+    return e_success;
+}
+Status encode_byte_to_lsb(char data, char *image_buffer)
+{
+    for(int i=0;i<8;i++)
+    {
+      int bit=(data>>i) & 1;
+      image_buffer[i]=image_buffer[i] & 0xFE;
+      image_buffer[i]=image_buffer[i] | bit;
+    }
+    return e_success;
+}
+
