@@ -39,7 +39,7 @@ uint get_image_size_for_bmp(FILE *fptr_image)
 Status open_files(EncodeInfo *encInfo)
 {
     // Src Image file
-    encInfo->fptr_src_image = fopen(encInfo->src_image_fname, "r");
+    encInfo->fptr_src_image = fopen(encInfo->src_image_fname, "rb");
     // Do Error handling
     if (encInfo->fptr_src_image == NULL)
     {
@@ -50,7 +50,7 @@ Status open_files(EncodeInfo *encInfo)
     }
 
     // Secret file
-    encInfo->fptr_secret = fopen(encInfo->secret_fname, "r");
+    encInfo->fptr_secret = fopen(encInfo->secret_fname, "rb");
     // Do Error handling
     if (encInfo->fptr_secret == NULL)
     {
@@ -61,7 +61,7 @@ Status open_files(EncodeInfo *encInfo)
     }
 
     // Stego Image file
-    encInfo->fptr_stego_image = fopen(encInfo->stego_image_fname, "w");
+    encInfo->fptr_stego_image = fopen(encInfo->stego_image_fname, "wb");
     // Do Error handling
     if (encInfo->fptr_stego_image == NULL)
     {
@@ -141,11 +141,44 @@ Status do_encoding(EncodeInfo *encInfo)
     printf("source image doesnot provide 8 bytes data to store magic string\n");
     return e_failure;
   }
+  char *dot=strrchr(encInfo -> secret_fname,'.');
+  if(dot==NULL)
+  {
+    printf("Secret file extension is not found\n");
+    return e_failure;
+  }
+  strcpy(encInfo->extn_secret_file,dot);
+  if(encode_secret_file_extn_size(strlen(encInfo -> extn_secret_file),encInfo)==e_failure)
+  {
+    printf("Secret file extension is not valid\n");
+    return e_failure;
+  }
+  if(encode_secret_file_extn(encInfo -> extn_secret_file,encInfo)==e_failure)
+  {
+    printf("Secret file extension is not encoded successfully in source image\n ");
+    return e_failure;
+  }
+  if(encode_secret_file_size(encInfo -> size_secret_file,encInfo)==e_failure)
+  {
+    printf("Encoding secret file size in source image is failed\n");
+    return e_failure;
+  }
+  if(encode_secret_file_data(encInfo)==e_failure)
+  {
+    printf("Secret file actual contents not hide in output image\n");
+    return e_failure;
+  }
+  if(copy_remaining_img_data(encInfo -> fptr_src_image, encInfo ->fptr_stego_image)==e_failure)
+  {
+    printf("Data will not copied successfully inside output image\n");
+    return e_failure;
+  }
+  return e_success;
 }
 Status check_capacity(EncodeInfo *encInfo)
 {
     encInfo -> size_secret_file =get_file_size(encInfo -> fptr_secret);
-    if(get_image_size_for_bmp(encInfo -> fptr_src_image)>=(2+4+4+encInfo -> size_secret_file)*8)
+    if(get_image_size_for_bmp(encInfo -> fptr_src_image)>=(2+4+4+4+encInfo -> size_secret_file)*8)
     {
         return e_success;
     }else{
@@ -202,4 +235,97 @@ Status encode_byte_to_lsb(char data, char *image_buffer)
     }
     return e_success;
 }
+Status encode_secret_file_extn_size(uint size, EncodeInfo *encInfo)
+{
+    char image_buffer[32];
+    if(fread(image_buffer,sizeof(image_buffer[0]),32,encInfo -> fptr_src_image)!=32)
+    {
+       return e_failure;
+    }
+    encode_size_to_lsb(size,image_buffer);
+    if(fwrite(image_buffer,sizeof(image_buffer[0]),32,encInfo -> fptr_stego_image)!=32)
+    {
+        return e_failure;
+    }
+    return e_success;
+}
+Status encode_size_to_lsb(uint size,char *image_buffer)
+{
+    for(int i=0;i<32;i++)
+    {
+        int bits=(size>>i) & 1;
+        image_buffer[i]=image_buffer[i] & 0xFE;
+        image_buffer[i]=image_buffer[i] | bits;
+    }
+    return e_success;
+}
+Status encode_secret_file_extn(const char *file_extn,EncodeInfo *encInfo)
+{
+    char image_buffer[8];
+    for(int i=0;file_extn[i]!='\0';i++)
+    {
+        if(fread(image_buffer,sizeof(image_buffer[0]),8,encInfo -> fptr_src_image)!=8)
+        {
+            return e_failure;
+        }
+        encode_byte_to_lsb(file_extn[i],image_buffer);
+        if(fwrite(image_buffer,sizeof(image_buffer[0]),8,encInfo -> fptr_stego_image)!=8)
+        {
+            return e_failure;
+        }
+    }
+    return e_success;
+}
+Status encode_secret_file_size(long file_size,EncodeInfo *encInfo)
+{
+    char image_buffer[32];
+    if(fread(image_buffer,sizeof(image_buffer[0]),32,encInfo -> fptr_src_image)!=32)
+    {
+        return e_failure;
+    }
+    encode_size_to_lsb(file_size,image_buffer);
+    if(fwrite(image_buffer,sizeof(image_buffer[0]),32,encInfo -> fptr_stego_image)!=32)
+    {
+        return e_failure;
+    }
+    return e_success;
+}
+Status encode_secret_file_data(EncodeInfo *encInfo)
+{
+    char image_buffer[8],data;
+    for(int i=0;i<encInfo -> size_secret_file;i++)
+    {
+        if(fread(image_buffer,sizeof(image_buffer[0]),8,encInfo -> fptr_src_image)!=8)
+        {
+            return e_failure;
+        }
+        if(fread(&data,sizeof(image_buffer[0]),1,encInfo -> fptr_secret)!=1)
+        {
+            return e_failure;
+        }
+        encode_byte_to_lsb(data,image_buffer);
+        if(fwrite(image_buffer,sizeof(image_buffer[0]),8,encInfo -> fptr_stego_image)!=8)
+        {
+            return e_failure;
+        }
+    }
+    return e_success;
+}
+Status copy_remaining_img_data(FILE *fptr_src_image,FILE *fptr_stego_image)
+{
+    int ch;
+    while((ch=fgetc(fptr_src_image))!=EOF)
+    {
+       if(putc(ch,fptr_stego_image)==EOF)
+       {
+        return e_failure;
+       }
+    }
+    if(ferror(fptr_src_image))
+    {
+        return e_failure;
+    }
+    return e_success;
+}
+
 
