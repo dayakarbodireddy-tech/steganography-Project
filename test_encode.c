@@ -12,13 +12,20 @@ int main(int argc,char *argv[])
     }
     if(check_operation_type(argv[1][1])==e_encode)
     {
-       if(read_and_validate_encode_args(argv,&encInfo)==e_success)
+       if(read_and_validate_encode_args(argc,argv,&encInfo)==e_success)
        {
-        printf("Arguments validated successfully\n");
+        if(do_encoding(&encInfo)==e_success)
+        {
+          printf("Encoding done successfully\n");
+        }else{
+          printf("encoding is not done successfully\n");
+        }
 
+       }else{
+        printf("Invalid arguments or unable to open files\n");
        }
     }
-    else if(check_operation_type(argv[1][1])==d_decode)
+    else if(check_operation_type(argv[1][1])==e_decode)
     {
         printf("Decode selected\n");
     }else{
@@ -38,7 +45,7 @@ OperationType check_operation_type(char opt)
   }
   else if(opt=='d')
   {
-    return d_decode;
+    return e_decode;
   }
   else{
     return e_unsupported;
