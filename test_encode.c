@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include "encode.h"
+#include "decode.h"
 #include "types.h"
 
 int main(int argc,char *argv[])
 {
     EncodeInfo encInfo;
+    DecodeInfo decInfo;
     if(argc<2)
     {
         printf("PLEASE PROVIDE FILES\n");
@@ -27,7 +29,17 @@ int main(int argc,char *argv[])
     }
     else if(check_operation_type(argv[1][1])==e_decode)
     {
-        printf("Decode selected\n");
+       if(read_and_validate_decode_args(argc,argv,&decInfo)==e_success)
+       {
+        if(do_decoding(&decInfo)==e_success)
+        {
+          printf("Decoding done successfully\n");
+        }else{
+          printf("Decoding not done successfully\n");
+        }
+       }else{
+        printf("Invalid arguments or unable to open files\n");
+       }
     }else{
         printf("UNSUPPORTED INFORMATION\n");
         return 1;

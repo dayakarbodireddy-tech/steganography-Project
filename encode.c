@@ -37,7 +37,7 @@ Status read_and_validate_encode_args(int argc,char *argv[],EncodeInfo *encInfo)
 {
     if(argc < 4 || argc > 5)
     {
-        printf("Error:Argument count not should be more or lesss as compared to required\n");
+        printf("Error:files mismatched\n");
         return e_failure;
     }
     int len=strlen(argv[2]);
